@@ -49,7 +49,7 @@
 
     - name: 'Create a new regular user with sudo privileges'
       user:
-        name: "{{ user_login }}"
+        name: "{{ user_name }}"
         password: "{{ user_password_hash }}"
         state: present
         groups: ["sudo", "systemd-journal"]
@@ -59,7 +59,7 @@
 
     - name: 'Set authorized key for remote user'
       authorized_key:
-        user: "{{ user_login }}"
+        user: "{{ user_name }}"
         state: present
         key: "{{ user_ssh_key }}"
 
