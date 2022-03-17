@@ -1,0 +1,97 @@
+---
+- hosts: all
+  remote_user: root
+  become: true
+  vars_files:
+    - vars/global.yml
+
+
+  tasks:
+    # Initial system setup: set locale, install aptitude, update the system, install sudo
+    - name: 'Generate {{ lc_locale }} locale'
+      locale_gen:
+        name: "{{ lc_locale }}"
+        state: present
+    - name: 'Configure locale and language to {{ lc_locale }}'
+      command: localectl set-locale LANG={{ lc_locale }} LANGUAGE={{ lc_locale }}
+
+    - name: 'Disable all apt recommendations and suggestions, allow release info change'
+      copy:
+        src: "apt/99local"
+        dest: "/etc/apt/apt.conf.d/99local"
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: 'Install aptitude'
+      apt:
+        name: aptitude
+        update_cache: yes
+        state: latest
+        force_apt_get: yes
+
+    - name: 'Upgrade the system'
+      apt:
+        update_cache: yes
+        upgrade: safe
+
+    - name: 'Install sudo'
+      apt:
+        name: sudo
+        state: latest
+
+    # User + Key Setup
+    - name: 'Change root password'
+      user:
+        name: root
+        password: "{{ root_password_hash }}"
+      when: root_password_hash is defined
+
+    - name: 'Create a new regular user with sudo privileges'
+      user:
+        name: "{{ user_login }}"
+        password: "{{ user_password_hash }}"
+        state: present
+        groups: ["sudo", "systemd-journal"]
+        append: true
+        create_home: true
+        shell: /bin/bash
+
+    - name: 'Set authorized key for remote user'
+      authorized_key:
+        user: "{{ user_login }}"
+        state: present
+        key: "{{ user_ssh_key }}"
+
+    - name: 'Disable password authentication'
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        state: present
+        regexp: '^(\#|\s)*PasswordAuthentication\s*(yes|no)$'
+        line: 'PasswordAuthentication no'
+
+    # Install and setup UFW
+    - name: 'Install UFW'
+      apt:
+        name: "ufw"
+        state: latest
+
+    - name: 'UFW - Allow SSH connections'
+      ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: 'UFW - Deny all other incoming traffic by default'
+      ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+
+    # Install additional packages
+    - name: 'Install custom packages'
+      apt:
+        name: "{{ packages_to_install }}"
+        state: latest
+
+    - name: "Reboot machine"
+      reboot:

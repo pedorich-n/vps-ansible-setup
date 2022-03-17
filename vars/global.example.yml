@@ -1,0 +1,7 @@
+---
+lc_locale: "en_US.UTF-8"
+root_password_hash:
+user_login: example
+user_password_hash: example
+user_ssh_key: "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_rsa.pub') }}"
+packages_to_install: [ 'bash-completion', 'curl', 'vim', 'git', 'htop']
